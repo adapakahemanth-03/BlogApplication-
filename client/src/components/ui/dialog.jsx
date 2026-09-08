@@ -2,15 +2,9 @@ import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface DialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  children: React.ReactNode
-}
-
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children }) {
   React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e) => {
       if (e.key === "Escape" && open) {
         onOpenChange(false)
       }
@@ -47,7 +41,7 @@ export function DialogContent({
   children,
   onClose,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & { onClose?: () => void }) {
+}) {
   return (
     <div
       className={cn(
@@ -74,7 +68,7 @@ export function DialogContent({
 export function DialogHeader({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}) {
   return (
     <div
       className={cn(
@@ -89,7 +83,7 @@ export function DialogHeader({
 export function DialogFooter({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}) {
   return (
     <div
       className={cn(
@@ -104,7 +98,7 @@ export function DialogFooter({
 export function DialogTitle({
   className,
   ...props
-}: React.HTMLAttributes<HTMLHeadingElement>) {
+}) {
   return (
     <h2
       className={cn(
@@ -119,7 +113,7 @@ export function DialogTitle({
 export function DialogDescription({
   className,
   ...props
-}: React.HTMLAttributes<HTMLParagraphElement>) {
+}) {
   return (
     <p
       className={cn("text-sm text-muted-foreground mt-1.5", className)}

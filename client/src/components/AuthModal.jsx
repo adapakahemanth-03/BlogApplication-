@@ -11,34 +11,28 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, Lock, Mail, User as UserIcon } from "lucide-react"
 
-interface AuthModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  initialTab?: "login" | "register"
-}
-
-export const AuthModal: React.FC<AuthModalProps> = ({
+export const AuthModal = ({
   open,
   onOpenChange,
   initialTab = "login",
 }) => {
   const { login, register } = useAuth()
-  const [activeTab, setActiveTab] = React.useState<"login" | "register">(initialTab)
+  const [activeTab, setActiveTab] = React.useState(initialTab)
 
   // Form states
   const [username, setUsername] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [error, setError] = React.useState(null)
 
   // Reset error when tab changes
-  const handleTabChange = (tab: "login" | "register") => {
+  const handleTabChange = (tab) => {
     setActiveTab(tab)
     setError(null)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setIsLoading(true)

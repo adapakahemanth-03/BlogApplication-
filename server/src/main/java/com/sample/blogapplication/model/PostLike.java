@@ -1,5 +1,6 @@
 package com.sample.blogapplication.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,6 +24,7 @@ public class PostLike {
     @JoinColumn(name="post_id",nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private Post post;
 
     public Long getId() { return id; }

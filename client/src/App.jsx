@@ -1,6 +1,5 @@
 import * as React from "react"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
-import type { Post } from "@/types"
 import { postsApi, likesApi, commentsApi } from "@/lib/api"
 import { Navbar } from "@/components/Navbar"
 import { ArticleFeedCard } from "@/components/ArticleFeedCard"
@@ -16,160 +15,56 @@ import {
   BookOpen,
   RefreshCw,
   Sparkles,
-  MessageSquare,
   Flame,
   ArrowRight,
 } from "lucide-react"
-
-// Storage helpers to track known post IDs across sessions so all articles are discovered
-function getStoredKnownPostIds(): number[] {
-  try {
-    const data =
-      localStorage.getItem("blogplus_known_post_ids") ||
-      localStorage.getItem("blogpulse_known_post_ids")
-    return data ? JSON.parse(data) : [1, 2, 3, 6, 7, 8]
-  } catch {
-    return [1, 2, 3, 6, 7, 8]
-  }
-}
-
-function addStoredKnownPostId(postId: number) {
-  try {
-    const existing = getStoredKnownPostIds()
-    if (!existing.includes(postId)) {
-      const updated = [postId, ...existing]
-      localStorage.setItem("blogplus_known_post_ids", JSON.stringify(updated))
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function removeStoredKnownPostId(postId: number) {
-  try {
-    const existing = getStoredKnownPostIds()
-    const updated = existing.filter((id) => id !== postId)
-    localStorage.setItem("blogplus_known_post_ids", JSON.stringify(updated))
-  } catch {
-    // ignore
-  }
-}
-
-// Storage helpers for user-specific authored posts
-function getStoredUserPostIds(username?: string): number[] {
-  if (!username) return []
-  try {
-    const data = localStorage.getItem(`blog_user_posts_${username.toLowerCase()}`)
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
-  }
-}
-
-function addStoredUserPostId(username: string, postId: number) {
-  try {
-    const key = `blog_user_posts_${username.toLowerCase()}`
-    const existing = getStoredUserPostIds(username)
-    if (!existing.includes(postId)) {
-      localStorage.setItem(key, JSON.stringify([postId, ...existing]))
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function removeStoredUserPostId(username: string, postId: number) {
-  try {
-    const key = `blog_user_posts_${username.toLowerCase()}`
-    const existing = getStoredUserPostIds(username)
-    localStorage.setItem(key, JSON.stringify(existing.filter((id) => id !== postId)))
-  } catch {
-    // ignore
-  }
-}
 
 function BlogMain() {
   const { currentUser, isAuthenticated } = useAuth()
 
   // Navigation / Page View state: "home" | "articles" | "my"
-  const [activeView, setActiveView] = React.useState<"home" | "articles" | "my">("home")
+  const [activeView, setActiveView] = React.useState("home")
   const currentView = isAuthenticated ? activeView : activeView === "my" ? "articles" : activeView
 
   // Posts state
-  const [posts, setPosts] = React.useState<Post[]>([])
+  const [posts, setPosts] = React.useState([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [error, setError] = React.useState<string | null>(null)
+  const [error, setError] = React.useState(null)
 
   // Modals state
   const [authModalOpen, setAuthModalOpen] = React.useState(false)
-  const [authInitialTab, setAuthInitialTab] = React.useState<"login" | "register">("login")
+  const [authInitialTab, setAuthInitialTab] = React.useState("login")
 
   const [editorModalOpen, setEditorModalOpen] = React.useState(false)
-  const [editingPost, setEditingPost] = React.useState<Post | null>(null)
+  const [editingPost, setEditingPost] = React.useState(null)
 
   const [detailModalOpen, setDetailModalOpen] = React.useState(false)
-  const [selectedPost, setSelectedPost] = React.useState<Post | null>(null)
+  const [selectedPost, setSelectedPost] = React.useState(null)
 
-  // Load all posts from Spring Boot live API and merge all live articles across all authors
+  // Load all real posts from Spring Boot database
   const loadPosts = React.useCallback(async () => {
     try {
-      // 1. Fetch main posts list from backend Spring Boot /api/posts
-      const serverPosts = await postsApi.getAll().catch(() => [])
+      setIsLoading(true)
+      const serverPosts = await postsApi.getAll()
+      const postList = Array.isArray(serverPosts) ? serverPosts : []
 
-      // 2. Discover all live articles from the Spring Boot database
-      const storedIds = getStoredKnownPostIds()
-      const userIds = currentUser ? getStoredUserPostIds(currentUser.username) : []
-      const knownIdsSet = new Set<number>([...storedIds, ...userIds])
-
-      // Include IDs present in serverPosts
-      serverPosts.forEach((p) => {
-        if (p && typeof p.id === "number") knownIdsSet.add(p.id)
-      })
-
-      // Probe live IDs up to at least 25 or 10 above highest known ID
-      const highestId = knownIdsSet.size > 0 ? Math.max(...Array.from(knownIdsSet)) : 10
-      const probeLimit = Math.max(25, highestId + 10)
-
-      const idsToFetch: number[] = []
-      for (let id = 1; id <= probeLimit; id++) {
-        if (!serverPosts.some((p) => p.id === id)) {
-          idsToFetch.push(id)
-        }
-      }
-
-      // Fetch live articles concurrently from Spring Boot GET /api/posts/{id}
-      const fetchedResults = await Promise.all(
-        idsToFetch.map(async (id) => {
-          try {
-            const p = await postsApi.getById(id)
-            if (p && typeof p.id === "number") {
-              addStoredKnownPostId(p.id)
-              return p
-            }
-            removeStoredKnownPostId(id)
-            return null
-          } catch {
-            removeStoredKnownPostId(id)
-            return null
+      // If authenticated, get all post IDs the user has liked
+      let likedSet = new Set()
+      if (isAuthenticated) {
+        try {
+          const likedIds = await likesApi.getUserLikedPostIds()
+          if (Array.isArray(likedIds)) {
+            likedSet = new Set(likedIds)
           }
-        })
-      )
-      const validFetched = fetchedResults.filter(
-        (p): p is Post => p !== null && typeof p.id === "number"
-      )
-
-      // Combine and deduplicate
-      const combinedMap = new Map<number, Post>()
-      for (const p of [...validFetched, ...serverPosts]) {
-        if (p && p.id) {
-          combinedMap.set(p.id, p)
+        } catch {
+          // fallback if unauthenticated
         }
       }
 
-      // 3. Enrich with live like counts and comment counts concurrently
+      // Enrich with live like counts, liked status, and comment counts concurrently
       const enriched = await Promise.all(
-        Array.from(combinedMap.values()).map(async (p) => {
+        postList.map(async (p) => {
           try {
             const [likeCount, comments] = await Promise.all([
               likesApi.getCount(p.id).catch(() => 0),
@@ -177,11 +72,17 @@ function BlogMain() {
             ])
             return {
               ...p,
-              likeCount,
+              likeCount: typeof likeCount === "number" ? likeCount : 0,
+              isLiked: likedSet.has(p.id),
               commentCount: comments.length,
             }
           } catch {
-            return p
+            return {
+              ...p,
+              likeCount: 0,
+              isLiked: likedSet.has(p.id),
+              commentCount: 0,
+            }
           }
         })
       )
@@ -196,18 +97,45 @@ function BlogMain() {
 
       setPosts(enriched)
       setError(null)
-    } catch (err: unknown) {
+    } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Could not connect to the backend server. Make sure the Spring Boot server is running on http://localhost:8080."
       )
+      setPosts([])
     } finally {
       setIsLoading(false)
     }
-  }, [currentUser])
+  }, [isAuthenticated])
 
-  // Initial load
+  // Update a single post's like status in memory immediately
+  const handlePostLikeUpdated = React.useCallback((postId, freshCount, liked) => {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              likeCount: typeof freshCount === "number" ? freshCount : p.likeCount,
+              isLiked: typeof liked === "boolean" ? liked : p.isLiked,
+            }
+          : p
+      )
+    )
+    if (selectedPost && selectedPost.id === postId) {
+      setSelectedPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              likeCount: typeof freshCount === "number" ? freshCount : prev.likeCount,
+              isLiked: typeof liked === "boolean" ? liked : prev.isLiked,
+            }
+          : null
+      )
+    }
+  }, [selectedPost])
+
+  // Initial and view-change reload
   React.useEffect(() => {
     let isMounted = true
     const init = async () => {
@@ -219,10 +147,10 @@ function BlogMain() {
     return () => {
       isMounted = false
     }
-  }, [loadPosts])
+  }, [activeView, isAuthenticated, loadPosts])
 
   // Open Auth modal
-  const handleOpenAuth = (tab: "login" | "register" = "login") => {
+  const handleOpenAuth = (tab = "login") => {
     setAuthInitialTab(tab)
     setAuthModalOpen(true)
   }
@@ -238,51 +166,39 @@ function BlogMain() {
   }
 
   // Open Edit Post modal
-  const handleEditPost = (post: Post) => {
+  const handleEditPost = (post) => {
     setEditingPost(post)
     setEditorModalOpen(true)
   }
 
   // Handle Post Deletion
-  const handleDeletePost = async (postId: number) => {
+  const handleDeletePost = async (postId) => {
     if (!confirm("Are you sure you want to permanently delete this post?")) return
     try {
       await postsApi.delete(postId)
-      removeStoredKnownPostId(postId)
-      if (currentUser) {
-        removeStoredUserPostId(currentUser.username, postId)
-      }
       setPosts((prev) => prev.filter((p) => p.id !== postId))
       if (selectedPost?.id === postId) {
         setDetailModalOpen(false)
         setSelectedPost(null)
       }
-    } catch (err: unknown) {
+    } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete post.")
     }
   }
 
   // Callback when a post is created or updated
-  const handlePostSaved = (savedPost: Post) => {
+  const handlePostSaved = (savedPost) => {
     // 1. If author object is not populated, attach currentUser
-    const postWithAuthor: Post = {
+    const postWithAuthor = {
       ...savedPost,
       author: savedPost.author || {
-        id: 0,
+        id: currentUser?.id || 0,
         username: currentUser?.username || "You",
-        email: "",
+        email: currentUser?.email || "",
       },
     }
 
-    // 2. Persist post ID globally & for this user so it's always included in all feeds
-    if (savedPost.id) {
-      addStoredKnownPostId(savedPost.id)
-      if (currentUser) {
-        addStoredUserPostId(currentUser.username, savedPost.id)
-      }
-    }
-
-    // 3. Immediately update client state so the post appears on the home feed without delay
+    // 2. Immediately update client state so the post appears on the feed without delay
     setPosts((prev) => {
       const filtered = prev.filter((p) => p.id !== postWithAuthor.id)
       return [postWithAuthor, ...filtered]
@@ -292,7 +208,7 @@ function BlogMain() {
       setSelectedPost(postWithAuthor)
     }
 
-    // 4. Background re-fetch to ensure sync with server
+    // 3. Background re-fetch to ensure sync with server
     void loadPosts()
   }
 
@@ -376,55 +292,10 @@ function BlogMain() {
               </div>
             </section>
 
-            {/* Platform Feature Highlights */}
-            <section className="container mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-20">
-              <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                  A Better Way to Read and Share Ideas
-                </h2>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Everything you need for thoughtful blogging, expressive storytelling, and community interaction.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-                {/* Feature 1 */}
-                <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-sm p-6 space-y-3.5 hover:border-primary/40 hover:shadow-md transition-all">
-                  <div className="h-11 w-11 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
-                    <BookOpen className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground">Full-Length Reading</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Enjoy complete, uninterrupted blog articles with natural vertical scrolling. No truncated snippets or click-through friction.
-                  </p>
-                </Card>
-
-                {/* Feature 2 */}
-                <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-sm p-6 space-y-3.5 hover:border-primary/40 hover:shadow-md transition-all">
-                  <div className="h-11 w-11 rounded-xl bg-red-500/10 text-red-600 flex items-center justify-center">
-                    <MessageSquare className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground">In-Article Discussions</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Leave instant comments, exchange ideas, and express appreciation with live likes directly inside each blog container.
-                  </p>
-                </Card>
-
-                {/* Feature 3 */}
-                <Card className="rounded-2xl border-border/70 bg-card/60 backdrop-blur-sm p-6 space-y-3.5 hover:border-primary/40 hover:shadow-md transition-all">
-                  <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                    <Sparkles className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground">Rich Emoji Expressions</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Write captivating stories with our built-in emoji palette and rich typography rendering for full-color expressive storytelling. ✨
-                  </p>
-                </Card>
-              </div>
-
-              {/* Spotlight on Latest Post */}
-              {latestArticle && (
-                <div className="mt-14 p-6 sm:p-8 rounded-2xl border border-border/80 bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 max-w-4xl mx-auto">
+            {/* Spotlight on Latest Post */}
+            {latestArticle && (
+              <section className="container mx-auto max-w-4xl px-4 sm:px-6 py-12 sm:py-16">
+                <div className="p-6 sm:p-8 rounded-2xl border border-border/80 bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-xs font-semibold text-primary">
                       <Flame className="h-4 w-4 text-orange-500" />
@@ -447,8 +318,8 @@ function BlogMain() {
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
-              )}
-            </section>
+              </section>
+            )}
           </div>
         )}
 
@@ -629,6 +500,7 @@ function BlogMain() {
                     onDelete={handleDeletePost}
                     onOpenAuth={() => handleOpenAuth("login")}
                     onPostUpdated={() => void loadPosts()}
+                    onLikeUpdated={handlePostLikeUpdated}
                   />
                 ))}
               </div>
@@ -691,6 +563,7 @@ function BlogMain() {
         onPostUpdated={() => {
           void loadPosts()
         }}
+        onLikeUpdated={handlePostLikeUpdated}
       />
     </div>
   )

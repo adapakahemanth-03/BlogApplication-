@@ -4,6 +4,7 @@ import com.sample.blogapplication.model.Post;
 import com.sample.blogapplication.model.User;
 import com.sample.blogapplication.repository.PostRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -57,6 +58,6 @@ public class PostServiceImp implements PostService {
 
     @Override
     public List<Post> getAllPosts() {
-        return postRepo.findAll();
+        return postRepo.findAll(Sort.by(Sort.Direction.DESC, "createdAt", "id"));
     }
 }

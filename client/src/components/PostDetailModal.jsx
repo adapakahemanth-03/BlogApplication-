@@ -1,5 +1,4 @@
 import * as React from "react"
-import type { Post, Comment } from "@/types"
 import { useAuth } from "@/context/AuthContext"
 import { commentsApi, likesApi } from "@/lib/api"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -15,17 +14,7 @@ import {
   Send,
 } from "lucide-react"
 
-interface PostDetailModalProps {
-  post: Post | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onEdit: (post: Post) => void
-  onDelete: (postId: number) => void
-  onOpenAuth: () => void
-  onPostUpdated?: () => void
-}
-
-export const PostDetailModal: React.FC<PostDetailModalProps> = ({
+export const PostDetailModal = ({
   post,
   open,
   onOpenChange,
@@ -33,30 +22,44 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
   onDelete,
   onOpenAuth,
   onPostUpdated,
+  onLikeUpdated,
 }) => {
   const { currentUser, isAuthenticated } = useAuth()
-  const [comments, setComments] = React.useState<Comment[]>([])
+  const [comments, setComments] = React.useState([])
   const [newComment, setNewComment] = React.useState("")
-  const [likeCount, setLikeCount] = React.useState<number>(0)
+  const [likeCount, setLikeCount] = React.useState(post?.likeCount || 0)
+  const [isLiked, setIsLiked] = React.useState(Boolean(post?.isLiked))
   const [isLiking, setIsLiking] = React.useState(false)
   const [isSubmittingComment, setIsSubmittingComment] = React.useState(false)
-  const [commentError, setCommentError] = React.useState<string | null>(null)
+  const [commentError, setCommentError] = React.useState(null)
 
   const postId = post?.id
 
-  // Load comments and like count
+  // Sync with prop changes
+  React.useEffect(() => {
+    if (post) {
+      setLikeCount(post.likeCount || 0)
+      setIsLiked(Boolean(post.isLiked))
+    }
+  }, [post?.likeCount, post?.isLiked])
+
+  // Load comments and live like status
   React.useEffect(() => {
     let ignore = false
     async function fetchPostDetails() {
       if (!open || !postId) return
       try {
-        const [commentsData, count] = await Promise.all([
+        const [commentsData, status] = await Promise.all([
           commentsApi.getByPostId(postId).catch(() => []),
-          likesApi.getCount(postId).catch(() => 0),
+          likesApi.getStatus(postId).catch(() => ({ likeCount: 0, liked: false })),
         ])
         if (!ignore) {
           setComments(commentsData)
+          const count = typeof status.likeCount === "number" ? status.likeCount : 0
+          const liked = Boolean(status.liked)
           setLikeCount(count)
+          setIsLiked(liked)
+          if (onLikeUpdated) onLikeUpdated(postId, count, liked)
         }
       } catch (err) {
         console.error("Error loading post data:", err)
@@ -67,7 +70,7 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
     return () => {
       ignore = true
     }
-  }, [open, postId])
+  }, [open, postId, onLikeUpdated])
 
   const handleToggleLike = async () => {
     if (!isAuthenticated) {
@@ -76,19 +79,41 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
     }
     if (!post || isLiking) return
     setIsLiking(true)
+
+    const prevLiked = isLiked
+    const prevCount = likeCount
+    const nextLiked = !prevLiked
+    const nextCount = nextLiked ? prevCount + 1 : Math.max(0, prevCount - 1)
+
+    setIsLiked(nextLiked)
+    setLikeCount(nextCount)
+    if (onLikeUpdated) onLikeUpdated(post.id, nextCount, nextLiked)
+
     try {
-      await likesApi.toggle(post.id)
-      const count = await likesApi.getCount(post.id)
-      setLikeCount(count)
+      const res = await likesApi.toggle(post.id)
+      let finalCount = nextCount
+      let finalLiked = nextLiked
+      if (res && typeof res.likeCount === "number") {
+        finalCount = res.likeCount
+        finalLiked = Boolean(res.liked)
+      } else {
+        finalCount = await likesApi.getCount(post.id)
+      }
+      setLikeCount(finalCount)
+      setIsLiked(finalLiked)
+      if (onLikeUpdated) onLikeUpdated(post.id, finalCount, finalLiked)
       if (onPostUpdated) onPostUpdated()
     } catch (err) {
+      setIsLiked(prevLiked)
+      setLikeCount(prevCount)
+      if (onLikeUpdated) onLikeUpdated(post.id, prevCount, prevLiked)
       console.error("Error liking post:", err)
     } finally {
       setIsLiking(false)
     }
   }
 
-  const handleAddComment = async (e: React.FormEvent) => {
+  const handleAddComment = async (e) => {
     e.preventDefault()
     if (!isAuthenticated) {
       onOpenAuth()
@@ -103,20 +128,20 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
       setComments((prev) => [added, ...prev])
       setNewComment("")
       if (onPostUpdated) onPostUpdated()
-    } catch (err: unknown) {
+    } catch (err) {
       setCommentError(err instanceof Error ? err.message : "Failed to post comment.")
     } finally {
       setIsSubmittingComment(false)
     }
   }
 
-  const handleDeleteComment = async (commentId: number) => {
+  const handleDeleteComment = async (commentId) => {
     if (!confirm("Are you sure you want to delete this comment?")) return
     try {
       await commentsApi.delete(commentId)
       setComments((prev) => prev.filter((c) => c.id !== commentId))
       if (onPostUpdated) onPostUpdated()
-    } catch (err: unknown) {
+    } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete comment.")
     }
   }
@@ -201,15 +226,21 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
           {/* Post Action Bar */}
           <div className="mt-8 flex items-center gap-3">
             <Button
-              variant="outline"
+              variant={isLiked ? "secondary" : "outline"}
               size="sm"
               onClick={handleToggleLike}
               disabled={isLiking}
-              className="gap-2 cursor-pointer border-border hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+              className={`gap-2 cursor-pointer transition-colors ${
+                isLiked
+                  ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/30 dark:border-rose-900"
+                  : "border-border hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+              }`}
             >
-              <Heart className="h-4 w-4 text-rose-500 fill-rose-500/30" />
+              <Heart
+                className={`h-4 w-4 text-rose-500 ${isLiked ? "fill-rose-500" : "fill-rose-500/30"}`}
+              />
               <span className="font-semibold">{likeCount}</span>
-              <span className="text-muted-foreground">Likes</span>
+              <span className="text-muted-foreground">{likeCount === 1 ? "Like" : "Likes"}</span>
             </Button>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground px-2">
               <MessageSquare className="h-4 w-4" />

@@ -1,19 +1,11 @@
 import * as React from "react"
-import type { Post } from "@/types"
 import { useAuth } from "@/context/AuthContext"
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar } from "@/components/ui/avatar"
 import { Heart, MessageSquare, Pencil, Trash2, Calendar } from "lucide-react"
 
-interface PostCardProps {
-  post: Post
-  onSelect: (post: Post) => void
-  onEdit: (post: Post) => void
-  onDelete: (postId: number) => void
-}
-
-export const PostCard: React.FC<PostCardProps> = ({
+export const PostCard = ({
   post,
   onSelect,
   onEdit,

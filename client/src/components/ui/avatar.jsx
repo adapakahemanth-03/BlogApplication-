@@ -1,13 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
-  name?: string
-  src?: string
-  size?: "sm" | "md" | "lg"
-}
-
-function getInitials(name?: string): string {
+function getInitials(name) {
   if (!name) return "?"
   const parts = name.trim().split(" ")
   if (parts.length >= 2) {
@@ -17,7 +11,7 @@ function getInitials(name?: string): string {
 }
 
 // Generate consistent background color based on name string
-function getAvatarColor(name?: string): string {
+function getAvatarColor(name) {
   if (!name) return "bg-slate-500"
   const colors = [
     "bg-blue-600 text-white",
@@ -36,7 +30,7 @@ function getAvatarColor(name?: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
+const Avatar = React.forwardRef(
   ({ className, name, src, size = "md", ...props }, ref) => {
     const sizeClasses = {
       sm: "h-8 w-8 text-xs",

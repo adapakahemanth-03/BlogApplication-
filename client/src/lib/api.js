@@ -1,12 +1,10 @@
-import type { Post, Comment, User, AuthResponse } from "@/types"
-
 // Driven by VITE_API_URL environment variable with fallback for deployments
 // In local dev, an empty string routes through Vite's dev proxy to prevent browser CORS issues
 const API_BASE = import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ""
   ? import.meta.env.VITE_API_URL
   : (import.meta.env.DEV ? "" : "http://localhost:8080")
 
-function getAuthHeader(): Record<string, string> {
+function getAuthHeader() {
   const token = localStorage.getItem("blog_token")
   if (token) {
     return { Authorization: `Bearer ${token}` }
@@ -14,12 +12,12 @@ function getAuthHeader(): Record<string, string> {
   return {}
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`
-  const headers: Record<string, string> = {
+  const headers = {
     "Content-Type": "application/json",
     ...getAuthHeader(),
-    ...(options.headers as Record<string, string> || {}),
+    ...(options.headers || {}),
   }
 
   const response = await fetch(url, {
@@ -29,7 +27,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   // 204 No Content handling
   if (response.status === 204) {
-    return {} as T
+    return {}
   }
 
   if (!response.ok) {
@@ -51,13 +49,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   const rawText = await response.text()
   if (!rawText || rawText.trim() === "") {
-    return {} as T
+    return {}
   }
 
   // Handle server-side recursion truncation if present in Spring Boot response
   const sanitized = rawText.replace(/"roles":\]/g, '"roles":[]')
   try {
-    return JSON.parse(sanitized) as T
+    return JSON.parse(sanitized)
   } catch (parseError) {
     console.warn("JSON parsing failed, returning raw text or fallback:", parseError)
     throw new Error("Failed to parse server response.", { cause: parseError })
@@ -66,15 +64,15 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // Authentication endpoints
 export const authApi = {
-  login: async (credentials: { username: string; password: string }): Promise<AuthResponse> => {
-    return request<AuthResponse>("/api/auth/login", {
+  login: async (credentials) => {
+    return request("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     })
   },
 
-  register: async (userData: { username: string; email: string; password: string }): Promise<User> => {
-    return request<User>("/api/users/register", {
+  register: async (userData) => {
+    return request("/api/users/register", {
       method: "POST",
       body: JSON.stringify(userData),
     })
@@ -83,34 +81,34 @@ export const authApi = {
 
 // Post endpoints
 export const postsApi = {
-  getAll: async (): Promise<Post[]> => {
-    return request<Post[]>("/api/posts", {
+  getAll: async () => {
+    return request("/api/posts", {
       method: "GET",
     })
   },
 
-  getById: async (id: number): Promise<Post> => {
-    return request<Post>(`/api/posts/${id}`, {
+  getById: async (id) => {
+    return request(`/api/posts/${id}`, {
       method: "GET",
     })
   },
 
-  create: async (postData: { title: string; content: string }): Promise<Post> => {
-    return request<Post>("/api/posts", {
+  create: async (postData) => {
+    return request("/api/posts", {
       method: "POST",
       body: JSON.stringify(postData),
     })
   },
 
-  update: async (id: number, postData: { title: string; content: string }): Promise<Post> => {
-    return request<Post>(`/api/posts/${id}`, {
+  update: async (id, postData) => {
+    return request(`/api/posts/${id}`, {
       method: "PUT",
       body: JSON.stringify(postData),
     })
   },
 
-  delete: async (id: number): Promise<void> => {
-    return request<void>(`/api/posts/${id}`, {
+  delete: async (id) => {
+    return request(`/api/posts/${id}`, {
       method: "DELETE",
     })
   },
@@ -118,21 +116,21 @@ export const postsApi = {
 
 // Comment endpoints
 export const commentsApi = {
-  getByPostId: async (postId: number): Promise<Comment[]> => {
-    return request<Comment[]>(`/api/comments/post/${postId}`, {
+  getByPostId: async (postId) => {
+    return request(`/api/comments/post/${postId}`, {
       method: "GET",
     })
   },
 
-  create: async (postId: number, content: string): Promise<Comment> => {
-    return request<Comment>(`/api/comments/post/${postId}`, {
+  create: async (postId, content) => {
+    return request(`/api/comments/post/${postId}`, {
       method: "POST",
       body: JSON.stringify({ content }),
     })
   },
 
-  delete: async (commentId: number): Promise<void> => {
-    return request<void>(`/api/comments/${commentId}`, {
+  delete: async (commentId) => {
+    return request(`/api/comments/${commentId}`, {
       method: "DELETE",
     })
   },
@@ -140,15 +138,28 @@ export const commentsApi = {
 
 // Likes endpoints
 export const likesApi = {
-  toggle: async (postId: number): Promise<void> => {
-    return request<void>(`/api/likes/post/${postId}/toggle`, {
+  toggle: async (postId) => {
+    return request(`/api/likes/post/${postId}/toggle`, {
       method: "POST",
     })
   },
 
-  getCount: async (postId: number): Promise<number> => {
-    return request<number>(`/api/likes/post/${postId}/count`, {
+  getCount: async (postId) => {
+    return request(`/api/likes/post/${postId}/count`, {
+      method: "GET",
+    })
+  },
+
+  getStatus: async (postId) => {
+    return request(`/api/likes/post/${postId}/status`, {
+      method: "GET",
+    })
+  },
+
+  getUserLikedPostIds: async () => {
+    return request("/api/likes/user/liked", {
       method: "GET",
     })
   },
 }
+

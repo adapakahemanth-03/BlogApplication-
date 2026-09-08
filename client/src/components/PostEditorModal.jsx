@@ -1,5 +1,4 @@
 import * as React from "react"
-import type { Post } from "@/types"
 import { postsApi } from "@/lib/api"
 import {
   Dialog,
@@ -13,37 +12,24 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Check, Smile, Sparkles } from "lucide-react"
 
-interface PostEditorModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  editingPost: Post | null
-  onSaved: (post: Post) => void
-}
-
-interface FormProps {
-  editingPost: Post | null
-  onClose: () => void
-  onSaved: (post: Post) => void
-}
-
 const CURATED_EMOJIS = [
   "✨", "🚀", "💡", "🔥", "💻", "📝", "🎉", "❤️", "👍", "👏",
   "🌟", "📚", "🎯", "⚡", "🎨", "🔍", "📖", "💬", "🏆", "🛠️",
   "🤝", "☕", "☀️", "🙌", "😊", "😎", "🤔", "💪", "🌈", "✅"
 ]
 
-function PostEditorForm({ editingPost, onClose, onSaved }: FormProps) {
+function PostEditorForm({ editingPost, onClose, onSaved }) {
   const [title, setTitle] = React.useState(editingPost?.title || "")
   const [content, setContent] = React.useState(editingPost?.content || "")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState(null)
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false)
-  const [emojiTarget, setEmojiTarget] = React.useState<"title" | "content">("content")
+  const [emojiTarget, setEmojiTarget] = React.useState("content")
 
-  const titleInputRef = React.useRef<HTMLInputElement>(null)
-  const contentTextareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const titleInputRef = React.useRef(null)
+  const contentTextareaRef = React.useRef(null)
 
-  const handleInsertEmoji = (emoji: string) => {
+  const handleInsertEmoji = (emoji) => {
     if (emojiTarget === "title") {
       const input = titleInputRef.current
       if (input && input.selectionStart !== null && input.selectionEnd !== null) {
@@ -75,7 +61,7 @@ function PostEditorForm({ editingPost, onClose, onSaved }: FormProps) {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!title.trim()) {
       setErrorMessage("Title is required.")
@@ -90,7 +76,7 @@ function PostEditorForm({ editingPost, onClose, onSaved }: FormProps) {
     setErrorMessage(null)
 
     try {
-      let saved: Post
+      let saved
       if (editingPost) {
         saved = await postsApi.update(editingPost.id, {
           title: title.trim(),
@@ -104,7 +90,7 @@ function PostEditorForm({ editingPost, onClose, onSaved }: FormProps) {
       }
       onSaved(saved)
       onClose()
-    } catch (err: unknown) {
+    } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : "Failed to save post. Please try again."
       )
@@ -259,7 +245,7 @@ function PostEditorForm({ editingPost, onClose, onSaved }: FormProps) {
   )
 }
 
-export const PostEditorModal: React.FC<PostEditorModalProps> = ({
+export const PostEditorModal = ({
   open,
   onOpenChange,
   editingPost,

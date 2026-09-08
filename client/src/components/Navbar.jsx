@@ -1,17 +1,9 @@
-import * as React from "react"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Avatar } from "@/components/ui/avatar"
-import { SquarePen, Plus, LogIn, LogOut } from "lucide-react"
+import { Plus, LogIn, LogOut } from "lucide-react"
 
-interface NavbarProps {
-  onOpenAuth: (tab: "login" | "register") => void
-  onOpenCreatePost: () => void
-  activeView: "home" | "articles" | "my"
-  onViewChange: (view: "home" | "articles" | "my") => void
-}
-
-export const Navbar: React.FC<NavbarProps> = ({
+export const Navbar = ({
   onOpenAuth,
   onOpenCreatePost,
   activeView,
@@ -27,12 +19,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={() => onViewChange("home")}
-            className="flex items-center space-x-2.5 cursor-pointer text-left bg-transparent border-none p-0 focus:outline-none group"
+            className="cursor-pointer text-left bg-transparent border-none p-0 focus:outline-none"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
-              <SquarePen className="h-5 w-5" />
-            </div>
-            <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold tracking-tight text-foreground hover:text-primary transition-colors">
               BlogPlus
             </span>
           </button>

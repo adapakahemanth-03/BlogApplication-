@@ -1,5 +1,4 @@
 import * as React from "react"
-import type { Post, Comment } from "@/types"
 import { useAuth } from "@/context/AuthContext"
 import { likesApi, commentsApi } from "@/lib/api"
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
@@ -17,41 +16,33 @@ import {
   Sparkles,
 } from "lucide-react"
 
-interface ArticleFeedCardProps {
-  post: Post
-  onEdit: (post: Post) => void
-  onDelete: (postId: number) => void
-  onOpenAuth: (tab?: "login" | "register") => void
-  onPostUpdated?: () => void
-}
-
-export const ArticleFeedCard: React.FC<ArticleFeedCardProps> = ({
+export const ArticleFeedCard = ({
   post,
   onEdit,
   onDelete,
   onOpenAuth,
   onPostUpdated,
+  onLikeUpdated,
 }) => {
   const { currentUser, isAuthenticated } = useAuth()
 
   // Live like state
   const [likeCount, setLikeCount] = React.useState(post.likeCount || 0)
-  const [prevPropLikeCount, setPrevPropLikeCount] = React.useState(post.likeCount)
-  if (post.likeCount !== undefined && post.likeCount !== prevPropLikeCount) {
-    setPrevPropLikeCount(post.likeCount)
-    setLikeCount(post.likeCount)
-  }
-
-  const [isLiked, setIsLiked] = React.useState(false)
+  const [isLiked, setIsLiked] = React.useState(Boolean(post.isLiked))
   const [isTogglingLike, setIsTogglingLike] = React.useState(false)
 
+  React.useEffect(() => {
+    setLikeCount(post.likeCount || 0)
+    setIsLiked(Boolean(post.isLiked))
+  }, [post.likeCount, post.isLiked])
+
   // Comments state
-  const [comments, setComments] = React.useState<Comment[]>([])
+  const [comments, setComments] = React.useState([])
   const [showComments, setShowComments] = React.useState(false)
   const [isLoadingComments, setIsLoadingComments] = React.useState(false)
   const [newComment, setNewComment] = React.useState("")
   const [isSubmittingComment, setIsSubmittingComment] = React.useState(false)
-  const [commentError, setCommentError] = React.useState<string | null>(null)
+  const [commentError, setCommentError] = React.useState(null)
 
   const isAuthor =
     currentUser?.username?.trim().toLowerCase() ===
@@ -103,28 +94,42 @@ export const ArticleFeedCard: React.FC<ArticleFeedCardProps> = ({
     if (isTogglingLike) return
     setIsTogglingLike(true)
 
-    // Optimistic UI update
+    // Accurate toggle & optimistic UI update
     const previousLiked = isLiked
     const previousCount = likeCount
-    setIsLiked(!previousLiked)
-    setLikeCount((prev) => (previousLiked ? Math.max(0, prev - 1) : prev + 1))
+    const nextLiked = !previousLiked
+    const nextCount = nextLiked ? previousCount + 1 : Math.max(0, previousCount - 1)
+
+    setIsLiked(nextLiked)
+    setLikeCount(nextCount)
+    if (onLikeUpdated) onLikeUpdated(post.id, nextCount, nextLiked)
 
     try {
-      await likesApi.toggle(post.id)
-      const freshCount = await likesApi.getCount(post.id)
-      setLikeCount(freshCount)
+      const res = await likesApi.toggle(post.id)
+      let finalCount = nextCount
+      let finalLiked = nextLiked
+      if (res && typeof res.likeCount === "number") {
+        finalCount = res.likeCount
+        finalLiked = Boolean(res.liked)
+      } else {
+        finalCount = await likesApi.getCount(post.id)
+      }
+      setLikeCount(finalCount)
+      setIsLiked(finalLiked)
+      if (onLikeUpdated) onLikeUpdated(post.id, finalCount, finalLiked)
       if (onPostUpdated) onPostUpdated()
     } catch {
       // Revert on error
       setIsLiked(previousLiked)
       setLikeCount(previousCount)
+      if (onLikeUpdated) onLikeUpdated(post.id, previousCount, previousLiked)
     } finally {
       setIsTogglingLike(false)
     }
   }
 
   // Handle Add Comment
-  const handleAddComment = async (e: React.FormEvent) => {
+  const handleAddComment = async (e) => {
     e.preventDefault()
     if (!newComment.trim()) return
 
@@ -141,7 +146,7 @@ export const ArticleFeedCard: React.FC<ArticleFeedCardProps> = ({
       setComments((prev) => [...prev, created])
       setNewComment("")
       if (onPostUpdated) onPostUpdated()
-    } catch (err: unknown) {
+    } catch (err) {
       setCommentError(
         err instanceof Error ? err.message : "Failed to post comment. Please try again."
       )
@@ -151,12 +156,12 @@ export const ArticleFeedCard: React.FC<ArticleFeedCardProps> = ({
   }
 
   // Handle Delete Comment
-  const handleDeleteComment = async (commentId: number) => {
+  const handleDeleteComment = async (commentId) => {
     try {
       await commentsApi.delete(commentId)
       setComments((prev) => prev.filter((c) => c.id !== commentId))
       if (onPostUpdated) onPostUpdated()
-    } catch (err: unknown) {
+    } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete comment.")
     }
   }
@@ -186,7 +191,6 @@ export const ArticleFeedCard: React.FC<ArticleFeedCardProps> = ({
             </div>
           </div>
 
-          {/* Author/Admin Edit & Delete Actions */}
           {canModify && (
             <div className="flex items-center space-x-1.5">
               <Button
