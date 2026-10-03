@@ -46,12 +46,6 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
-        <!-- Loads .env file into Spring Environment automatically -->
-        <dependency>
-            <groupId>me.paulschwarz</groupId>
-            <artifactId>spring-dotenv</artifactId>
-            <version>4.0.0</version>
-        </dependency>
 
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

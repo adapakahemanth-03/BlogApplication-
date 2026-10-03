@@ -42,6 +42,7 @@ lerna-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+!.vscode/launch.json
 *.iml
 *.iws
 *.ipr

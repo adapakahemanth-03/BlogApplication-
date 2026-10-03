@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "BlogApplication",
+      "request": "launch",
+      "mainClass": "com.sample.blogapplication.BlogApplication",
+      "projectName": "blogApplication",
+      "envFile": "${workspaceFolder}/server/.env"
+    }
+  ]
+}
