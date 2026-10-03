@@ -27,8 +27,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
 import java.util.Set;
@@ -39,14 +37,10 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${app.cors.frontend-url:http://localhost:5173}")
-    private String frontendUrl;
-
     @Autowired
     public SecurityConfig(@Lazy JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
-
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -69,8 +63,15 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Single CORS source used by Spring Security.
+     * frontendUrl is injected as a @Value method parameter — this guarantees
+     * it is resolved BEFORE the bean is constructed (avoids null field injection timing bug).
+     */
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${app.cors.frontend-url:http://localhost:5173}") String frontendUrl) {
+
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:[*]",
@@ -88,22 +89,6 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOriginPatterns("http://localhost:[*]", "http://127.0.0.1:[*]", frontendUrl)
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
-                        .allowedHeaders("*")
-                        .exposedHeaders("Authorization", "Content-Type")
-                        .allowCredentials(true)
-                        .maxAge(3600);
-            }
-        };
     }
 
     @Bean
