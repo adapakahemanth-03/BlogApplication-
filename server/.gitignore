@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment Variables ###
+.env
+# .env.example is intentionally NOT ignored (it's a template with no real secrets)
