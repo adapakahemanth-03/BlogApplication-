@@ -29,8 +29,8 @@
     <properties>
         <java.version>17</java.version>
         <kotlin.version>2.3.20</kotlin.version>
-        <jwt.secret>blogapp-secret-key-should-be-changed-for-production</jwt.secret>
-        <jwt.expiration>3600000</jwt.expiration>
+        <!-- JWT_SECRET and JWT_EXPIRATION are supplied at runtime via environment variables.
+             See application.properties: jwt.secret=${JWT_SECRET} -->
     </properties>
     <dependencies>
         <dependency>
@@ -44,6 +44,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Actuator: exposes /actuator/health used by Docker healthcheck -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
 

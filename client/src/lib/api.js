@@ -1,8 +1,17 @@
-// Driven by VITE_API_URL environment variable with fallback for deployments
-// In local dev, an empty string routes through Vite's dev proxy to prevent browser CORS issues
-const API_BASE = import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ""
-  ? import.meta.env.VITE_API_URL
-  : (import.meta.env.DEV ? "" : "http://localhost:8080")
+// API_BASE resolution strategy:
+//
+//  1. Docker / Production (nginx):
+//     Built with VITE_API_URL="" → API_BASE = ""
+//     fetch("/api/...") goes to the same origin; nginx proxies it to the backend.
+//     Zero CORS issues — browser sees a single origin.
+//
+//  2. Local dev (Vite proxy):
+//     VITE_API_URL is undefined → API_BASE = ""
+//     Vite's dev server proxy (vite.config.js) forwards /api/* to localhost:8080.
+//
+//  3. Manual override (e.g. pointing at a remote backend from local dev):
+//     Set VITE_API_URL=https://my-backend.com in a .env.local file.
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").trim()
 
 function getAuthHeader() {
   const token = localStorage.getItem("blog_token")

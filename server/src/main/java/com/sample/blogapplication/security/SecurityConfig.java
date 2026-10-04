@@ -51,10 +51,19 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Auth & public API endpoints
                         .requestMatchers("/api/users/register", "/api/auth/login", "/error").permitAll()
+                        // Public GET API endpoints
                         .requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/comments/post/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/likes/**").permitAll()
+                        // Static frontend resources (for Spring Boot serving frontend or actuator)
+                        .requestMatchers(
+                                "/", "/index.html", "/favicon.ico",
+                                "/static/**", "/assets/**",
+                                "/*.js", "/*.css", "/*.map",
+                                "/actuator/health"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)
